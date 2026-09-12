@@ -8,12 +8,24 @@ from db import db
 
 db.init_db()
 
-# Kufar — раздел "куплю", ключевой запрос можно менять/дублировать под разные ниши
+# Kufar, раздел "Спрос" — это не текстовый поиск, а отдельная категория объявлений
+# (люди ищут/хотят купить). Можно добавить несколько подкатегорий как отдельные источники —
+# полный список подкатегорий смотри на https://www.kufar.by/l/r~minsk/spros
 db.upsert_source(
-    code="kufar_kuplu",
-    name="Kufar: куплю",
+    code="kufar_spros_all",
+    name="Kufar: Спрос (все категории, Минск)",
+    kind="kufar_spros",
+    config={"list_url": "https://www.kufar.by/l/r~minsk/spros?sort=lst.d", "max_pages": 2},
+)
+
+# Старый вариант через текстовый поиск не даёт результатов для "спроса" — Kufar не индексирует
+# "куплю" как текст, это отдельная категория. Оставлен выключенным для справки/на будущее.
+db.upsert_source(
+    code="kufar_kuplu_textsearch",
+    name="Kufar: текстовый поиск 'куплю' (не работает, см. kufar_spros)",
     kind="kufar",
     config={"search_query": "куплю", "page_size": 50},
+    enabled=False,
 )
 
 # Telegram-чат — ЗАПОЛНИ api_id/api_hash с https://my.telegram.org и имя чата

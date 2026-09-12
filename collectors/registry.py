@@ -13,11 +13,14 @@
 - Отзовики (otzovik и т.п.) — люди жалуются на отсутствие товара/сервиса
 """
 from .kufar import KufarCollector
+from .kufar_spros import KufarSprosCollector
 from .telegram_collector import TelegramCollector
 from .forum_generic import ForumGenericCollector
 
 COLLECTOR_REGISTRY = {
-    "kufar": KufarCollector,
+    "kufar": KufarCollector,               # текстовый поиск через API — оставлен, но не даёт
+                                            # результатов для "спроса" (см. kufar_spros)
+    "kufar_spros": KufarSprosCollector,    # рабочий вариант: парсинг раздела "Спрос"
     "telegram": TelegramCollector,
     "forum_generic": ForumGenericCollector,
 }
