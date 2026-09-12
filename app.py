@@ -38,6 +38,17 @@ def api_signals():
     return jsonify(db.get_recent_signals(category=category, limit=100))
 
 
+@app.route("/matches")
+def matches():
+    pairs = db.get_matches(limit=100)
+    return render_template("matches.html", matches=pairs)
+
+
+@app.route("/api/matches")
+def api_matches():
+    return jsonify(db.get_matches(limit=200))
+
+
 # --- Заготовка под SaaS (пока выключена) ---
 # from flask_login import LoginManager, login_user, login_required
 # login_manager = LoginManager(app)

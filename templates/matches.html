@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Совпадения — Demand Radar{% endblock %}
+{% block content %}
+
+<h1 class="category-title">Совпадения спроса и предложения</h1>
+<p class="page-lead">
+  Кто-то отдаёт даром/дёшево — кто-то в той же категории готов купить.
+  Это ещё не гарантия сделки (категории у обеих сторон совпадают, но конкретный
+  товар может отличаться) — проверяй вручную по ссылкам ниже.
+</p>
+
+{% if matches %}
+<ul class="match-feed">
+  {% for m in matches %}
+  <li class="match-item">
+    <div class="match-category">{{ m.category }}</div>
+    <div class="match-pair">
+      <div class="match-side">
+        <span class="match-label">Отдают</span>
+        <p class="match-text">{{ m.supply_item or m.supply_text[:120] }}</p>
+        <span class="match-value">{{ m.supply_value or "" }}</span>
+        <a class="signal-link" href="{{ m.supply_url }}" target="_blank">{{ m.supply_source }} →</a>
+      </div>
+      <div class="match-arrow">→</div>
+      <div class="match-side">
+        <span class="match-label">Ищут / купят</span>
+        <p class="match-text">{{ m.demand_query or m.demand_text[:120] }}</p>
+        <a class="signal-link" href="{{ m.demand_url }}" target="_blank">{{ m.demand_source }} →</a>
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">
+  Пока нет совпадений — либо ещё не накопилось данных с обеих сторон, либо
+  категории пока не пересекаются. Запусти <code>python run_pipeline.py all</code>
+  ещё несколько раз, дай источникам накопить данные.
+</p>
+{% endif %}
+
+{% endblock %}

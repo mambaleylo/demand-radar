@@ -26,10 +26,25 @@ body {
 .topbar {
   display: flex;
   align-items: baseline;
-  gap: 1rem;
+  gap: 1.5rem;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--panel-border);
   flex-wrap: wrap;
+}
+
+.topnav {
+  display: flex;
+  gap: 1rem;
+}
+
+.topnav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.topnav a:hover {
+  color: var(--text);
 }
 
 .logo {
@@ -217,4 +232,73 @@ main {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.page-lead {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  max-width: 640px;
+  margin-bottom: 1.5rem;
+}
+
+.match-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.match-item {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.match-category {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--signal-teal);
+  margin-bottom: 0.6rem;
+}
+
+.match-pair {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .match-pair { flex-direction: column; align-items: stretch; }
+  .match-arrow { transform: rotate(90deg); align-self: center; }
+}
+
+.match-side {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 0.2rem;
+}
+
+.match-text {
+  margin: 0 0 0.25rem;
+  font-size: 0.92rem;
+}
+
+.match-value {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.match-arrow {
+  color: var(--text-dim);
+  font-size: 1.2rem;
 }
