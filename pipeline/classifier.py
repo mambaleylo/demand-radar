@@ -1,23 +1,31 @@
 """
-Классификация сообщений через Google Gemini API (бесплатный тариф) батчами.
+Классификация сообщений через OpenRouter (бесплатные модели) батчами.
 Задача модели: по тексту сообщения решить —
-  1) это реальный неудовлетворённый спрос (человек ищет товар/услугу, которую не может найти)
+  1) это реальный неудовлетворённый спрос (человек ищет товар или услугу, которую не может найти)
      или шум (продажа, отвлечённый разговор, спам)?
   2) если спрос — категория и нормализованная формулировка запроса.
 
-Требуется переменная окружения GEMINI_API_KEY (бесплатный ключ без привязки карты —
-https://aistudio.google.com/apikey).
+Требуется переменная окружения OPENROUTER_API_KEY (бесплатный ключ без карты —
+https://openrouter.ai/keys).
 
-Модель gemini-2.5-flash сейчас на бесплатном тарифе. Google периодически меняет состав
-бесплатных моделей — актуальный список смотри на https://ai.google.dev/pricing. Если
-модель перестанет быть бесплатной или пропадёт, поменяй значение MODEL ниже.
+OpenRouter периодически меняет состав бесплатных моделей (см. openrouter.ai/models,
+фильтр "free"). Поэтому здесь список из нескольких кандидатов через запятую в
+OPENROUTER_MODELS — если первая модель недоступна/перегружена, OpenRouter сам
+пробует следующую по списку (встроенный fallback через поле "models").
+Если ни одна модель из дефолтного списка не работает — обнови DEFAULT_MODELS
+актуальными :free ID со страницы openrouter.ai/models.
 """
 import os
 import json
 import requests
 
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-MODEL = "gemini-2.5-flash"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+DEFAULT_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "google/gemma-2-9b-it:free",
+]
 
 SYSTEM_PROMPT = """Ты анализируешь сообщения с форумов/досок объявлений/чатов в Беларуси,
 чтобы найти сигналы неудовлетворённого спроса — случаи, когда человек ищет товар или услугу,
@@ -34,26 +42,35 @@ SYSTEM_PROMPT = """Ты анализируешь сообщения с фору�
 
 is_demand=false если: это объявление о продаже, обсуждение без явного запроса,
 жалоба без поиска альтернативы, спам, флуд, или запрос слишком общий чтобы быть полезным сигналом.
+Отвечай ТОЛЬКО валидным JSON, без markdown-обрамления вроде ```json.
 """
 
 
-def classify_message(text: str) -> dict:
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("Не задана переменная окружения GEMINI_API_KEY")
+def _get_models() -> list[str]:
+    override = os.environ.get("OPENROUTER_MODELS")
+    if override:
+        return [m.strip() for m in override.split(",") if m.strip()]
+    return DEFAULT_MODELS
 
-    url = f"{API_BASE}/{MODEL}:generateContent"
+
+def classify_message(text: str) -> dict:
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("Не задана переменная окружения OPENROUTER_API_KEY")
+
     headers = {
-        "x-goog-api-key": api_key,
-        "content-type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/mambaleylo/demand-radar",
+        "X-Title": "Demand Radar",
     }
     payload = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": text[:2000]}]}],
-        "generationConfig": {
-            "maxOutputTokens": 300,
-            "responseMimeType": "application/json",  # просим модель сразу вернуть чистый JSON
-        },
+        "models": _get_models(),  # OpenRouter сам перебирает список при недоступности модели
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text[:2000]},
+        ],
+        "max_tokens": 300,
     }
 
     fallback = {
@@ -65,12 +82,12 @@ def classify_message(text: str) -> dict:
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        resp = requests.post(API_URL, headers=headers, json=payload, timeout=30)
         if resp.status_code >= 400:
             print(f"[classifier] API error {resp.status_code}: {resp.text[:500]}")
             return fallback
         data = resp.json()
-        raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        raw = data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"[classifier] API error: {e}")
         return fallback

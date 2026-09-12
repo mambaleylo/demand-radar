@@ -30,7 +30,7 @@ app.py               сам веб-портал
 
 ```bash
 pip install -r requirements.txt
-export GEMINI_API_KEY="твой бесплатный ключ с aistudio.google.com/apikey"
+export OPENROUTER_API_KEY="твой бесплатный ключ с openrouter.ai/keys"
 
 python seed_sources.py        # регистрирует источники (один раз, потом отредактируй под себя)
 python run_pipeline.py all    # собрать -> отфильтровать -> классифицировать -> тренды
