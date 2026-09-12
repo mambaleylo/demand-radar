@@ -83,6 +83,25 @@ def cmd_trends():
     print(f"[trends] построено категорий за неделю: {n}")
 
 
+def cmd_reclassify_failed():
+    """Сбрасывает статус классификации для сообщений, где раньше была ошибка API
+    (api_error / classification_parse_error), чтобы classify подхватил их заново.
+    Нужно после смены API-провайдера или ключа, если старые попытки сохранились как
+    'обработано', хотя реального ответа модели не было."""
+    import json as _json
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            """SELECT ds.id, ds.raw_message_id FROM demand_signals ds
+               WHERE ds.reasoning IN ('api_error', 'classification_parse_error')"""
+        ).fetchall()
+        ids = [r["id"] for r in rows]
+        msg_ids = [r["raw_message_id"] for r in rows]
+        if ids:
+            conn.executemany("DELETE FROM demand_signals WHERE id=?", [(i,) for i in ids])
+            conn.executemany("UPDATE raw_messages SET classified=0 WHERE id=?", [(i,) for i in msg_ids])
+    print(f"[reclassify_failed] сброшено сообщений для повторной классификации: {len(msg_ids)}")
+
+
 if __name__ == "__main__":
     db.init_db()
     action = sys.argv[1] if len(sys.argv) > 1 else "all"
@@ -92,6 +111,7 @@ if __name__ == "__main__":
         "filter": cmd_filter,
         "classify": cmd_classify,
         "trends": cmd_trends,
+        "reclassify_failed": cmd_reclassify_failed,
     }
 
     if action == "all":
