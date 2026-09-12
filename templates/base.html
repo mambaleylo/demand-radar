@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Demand Radar{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="logo" href="/">
+    <span class="logo-mark">◎</span> Demand Radar
+  </a>
+  <span class="tagline">Что ищут и не находят — Минск и не только</span>
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — Demand Radar{% endblock %}
+{% block content %}
+
+<section class="controls">
+  <form method="get" class="period-form">
+    <label for="days">Период</label>
+    <select name="days" id="days" onchange="this.form.submit()">
+      <option value="7" {% if days == 7 %}selected{% endif %}>7 дней</option>
+      <option value="30" {% if days == 30 %}selected{% endif %}>30 дней</option>
+      <option value="90" {% if days == 90 %}selected{% endif %}>90 дней</option>
+    </select>
+  </form>
+</section>
+
+<section class="grid">
+  <div class="panel categories-panel">
+    <h2>Топ неудовлетворённого спроса</h2>
+    {% if categories %}
+    <ol class="category-list">
+      {% for c in categories %}
+      <li>
+        <a href="/category/{{ c.category }}">
+          <span class="cat-name">{{ c.category or "без категории" }}</span>
+          <span class="cat-count">{{ c.cnt }}</span>
+        </a>
+        <div class="bar" style="width: {{ (c.cnt / categories[0].cnt * 100) | round(0, 'floor') }}%"></div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty">
+      Пока пусто. Запусти <code>python run_pipeline.py all</code>, чтобы собрать
+      и классифицировать первые сообщения.
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="panel recent-panel">
+    <h2>Свежие сигналы</h2>
+    {% if recent %}
+    <ul class="signal-feed">
+      {% for s in recent %}
+      <li class="signal-item">
+        <div class="signal-head">
+          <span class="signal-category">{{ s.category or "—" }}</span>
+          <span class="signal-source">{{ s.source_name }}</span>
+        </div>
+        <p class="signal-query">{{ s.normalized_query or s.text[:140] }}</p>
+        {% if s.url %}<a class="signal-link" href="{{ s.url }}" target="_blank">открыть источник</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Сигналов пока нет.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}

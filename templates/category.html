@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ category }} — Demand Radar{% endblock %}
+{% block content %}
+
+<a href="/" class="back-link">← ко всем категориям</a>
+<h1 class="category-title">{{ category }}</h1>
+
+{% if signals %}
+<ul class="signal-feed detailed">
+  {% for s in signals %}
+  <li class="signal-item">
+    <div class="signal-head">
+      <span class="signal-source">{{ s.source_name }}</span>
+      <span class="signal-confidence">увер. {{ (s.confidence * 100) | round(0) }}%</span>
+    </div>
+    <p class="signal-query">{{ s.normalized_query }}</p>
+    <p class="signal-original">{{ s.text[:280] }}</p>
+    {% if s.url %}<a class="signal-link" href="{{ s.url }}" target="_blank">открыть источник</a>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">По этой категории пока нет сигналов.</p>
+{% endif %}
+
+{% endblock %}
