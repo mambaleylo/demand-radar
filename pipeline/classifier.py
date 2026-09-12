@@ -80,7 +80,10 @@ def classify_message(text: str) -> dict:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": text[:2000]},
         ],
-        "max_tokens": 300,
+        # Модели в списке — reasoning-модели: часть токенов уходит на внутренние
+        # рассуждения до финального ответа. При малом max_tokens ответ обрезается
+        # до пустой строки, поэтому лимит с запасом.
+        "max_tokens": 1024,
     }
 
     fallback = {
@@ -97,7 +100,10 @@ def classify_message(text: str) -> dict:
             print(f"[classifier] API error {resp.status_code}: {resp.text[:500]}")
             return fallback
         data = resp.json()
-        raw = data["choices"][0]["message"]["content"].strip()
+        raw = (data["choices"][0]["message"].get("content") or "").strip()
+        if not raw:
+            print(f"[classifier] пустой ответ модели, полный payload ответа: {str(data)[:500]}")
+            return fallback
     except Exception as e:
         print(f"[classifier] API error: {e}")
         return fallback
