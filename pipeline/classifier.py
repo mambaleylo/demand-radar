@@ -31,7 +31,6 @@ DEFAULT_MODELS = [
     "nex-agi/nex-n2.5-pro:free",
     "thinkingmachines/inkling-small:free",
     "nvidia/nemotron-3.5-lightning:free",
-    "liquid/lfm-2.5-2.6b:free",
 ]
 
 SYSTEM_PROMPT = """Ты анализируешь сообщения с форумов/досок объявлений/чатов в Беларуси,
@@ -56,8 +55,10 @@ is_demand=false если: это объявление о продаже, обс�
 def _get_models() -> list[str]:
     override = os.environ.get("OPENROUTER_MODELS")
     if override:
-        return [m.strip() for m in override.split(",") if m.strip()]
-    return DEFAULT_MODELS
+        models = [m.strip() for m in override.split(",") if m.strip()]
+    else:
+        models = DEFAULT_MODELS
+    return models[:3]  # OpenRouter: models array must have 3 items or fewer
 
 
 def classify_message(text: str) -> dict:
