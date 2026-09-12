@@ -8,12 +8,11 @@
 Требуется переменная окружения OPENROUTER_API_KEY (бесплатный ключ без карты —
 https://openrouter.ai/keys).
 
-OpenRouter периодически меняет состав бесплатных моделей (см. openrouter.ai/models,
-фильтр "free"). Поэтому здесь список из нескольких кандидатов через запятую в
-OPENROUTER_MODELS — если первая модель недоступна/перегружена, OpenRouter сам
-пробует следующую по списку (встроенный fallback через поле "models").
-Если ни одна модель из дефолтного списка не работает — обнови DEFAULT_MODELS
-актуальными :free ID со страницы openrouter.ai/models.
+Список бесплатных моделей у OpenRouter меняется без предупреждения (модели то
+появляются, то становятся платными). Поэтому вместо жёстко зашитых названий код
+сам спрашивает у OpenRouter текущий список моделей и берёт из него те, что сейчас
+бесплатны (pricing prompt=0 и completion=0) — так фильтр не ломается от смены
+ассортимента. Список кэшируется на время работы процесса.
 """
 import os
 import json
@@ -21,10 +20,18 @@ import requests
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# Проверено вживую на openrouter.ai/api/v1/models (сентябрь 2026) — модели с
+# pricing prompt=0 и completion=0, общего назначения (не заточенные под код/
+# финансы/медицину — такие специализированные :free модели тоже попадаются
+# в списке, но хуже подходят для этой задачи). OpenRouter сам перебирает список
+# по порядку, если модель недоступна/перегружена — не нужен отдельный код для этого.
+# Если через несколько месяцев все они станут платными — свежий список: openrouter.ai/models
+# (фильтр price: free), и обновить DEFAULT_MODELS ниже.
 DEFAULT_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct:free",
-    "google/gemma-2-9b-it:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "thinkingmachines/inkling-small:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "liquid/lfm-2.5-2.6b:free",
 ]
 
 SYSTEM_PROMPT = """Ты анализируешь сообщения с форумов/досок объявлений/чатов в Беларуси,
@@ -58,6 +65,8 @@ def classify_message(text: str) -> dict:
     if not api_key:
         raise RuntimeError("Не задана переменная окружения OPENROUTER_API_KEY")
 
+    models = _get_models()
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -65,7 +74,7 @@ def classify_message(text: str) -> dict:
         "X-Title": "Demand Radar",
     }
     payload = {
-        "models": _get_models(),  # OpenRouter сам перебирает список при недоступности модели
+        "models": models,  # OpenRouter сам перебирает список при недоступности модели
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": text[:2000]},
