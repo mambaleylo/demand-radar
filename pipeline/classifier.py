@@ -1,26 +1,23 @@
 """
-Классификация сообщений через Claude API батчами.
+Классификация сообщений через Google Gemini API (бесплатный тариф) батчами.
 Задача модели: по тексту сообщения решить —
   1) это реальный неудовлетворённый спрос (человек ищет товар/услугу, которую не может найти)
      или шум (продажа, отвлечённый разговор, спам)?
   2) если спрос — категория и нормализованная формулировка запроса.
 
-Требуется переменная окружения ANTHROPIC_API_KEY.
+Требуется переменная окружения GEMINI_API_KEY (бесплатный ключ без привязки карты —
+https://aistudio.google.com/apikey).
 
-Намеренно без пакета `anthropic` (SDK): его зависимость `jiter` собирается из Rust
-и на Termux/Android часто не ставится (нет Rust-тулчейна из коробки). Вместо этого —
-прямой HTTP-запрос через requests, который уже используется в остальном проекте.
+Модель gemini-2.5-flash сейчас на бесплатном тарифе. Google периодически меняет состав
+бесплатных моделей — актуальный список смотри на https://ai.google.dev/pricing. Если
+модель перестанет быть бесплатной или пропадёт, поменяй значение MODEL ниже.
 """
 import os
 import json
 import requests
 
-API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2023-06-01"
-
-# Haiku — дешёвая и быстрая модель, подходит для массовой классификации коротких сообщений.
-# Если качество классификации будет хромать — поменять на "claude-sonnet-5".
-MODEL = "claude-haiku-4-5-20251001"
+API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+MODEL = "gemini-2.5-flash"
 
 SYSTEM_PROMPT = """Ты анализируешь сообщения с форумов/досок объявлений/чатов в Беларуси,
 чтобы найти сигналы неудовлетворённого спроса — случаи, когда человек ищет товар или услугу,
@@ -41,56 +38,49 @@ is_demand=false если: это объявление о продаже, обс�
 
 
 def classify_message(text: str) -> dict:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise RuntimeError("Не задана переменная окружения ANTHROPIC_API_KEY")
+        raise RuntimeError("Не задана переменная окружения GEMINI_API_KEY")
 
+    url = f"{API_BASE}/{MODEL}:generateContent"
     headers = {
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
+        "x-goog-api-key": api_key,
         "content-type": "application/json",
     }
     payload = {
-        "model": MODEL,
-        "max_tokens": 300,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": text[:2000]}],
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": text[:2000]}]}],
+        "generationConfig": {
+            "maxOutputTokens": 300,
+            "responseMimeType": "application/json",  # просим модель сразу вернуть чистый JSON
+        },
+    }
+
+    fallback = {
+        "is_demand": False,
+        "category": None,
+        "normalized_query": None,
+        "confidence": 0.0,
+        "reasoning": "api_error",
     }
 
     try:
-        resp = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
         if resp.status_code >= 400:
             print(f"[classifier] API error {resp.status_code}: {resp.text[:500]}")
-            return {
-                "is_demand": False,
-                "category": None,
-                "normalized_query": None,
-                "confidence": 0.0,
-                "reasoning": "api_error",
-            }
+            return fallback
         data = resp.json()
-        raw = data["content"][0]["text"].strip()
+        raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
         print(f"[classifier] API error: {e}")
-        return {
-            "is_demand": False,
-            "category": None,
-            "normalized_query": None,
-            "confidence": 0.0,
-            "reasoning": "api_error",
-        }
+        return fallback
 
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        return {
-            "is_demand": False,
-            "category": None,
-            "normalized_query": None,
-            "confidence": 0.0,
-            "reasoning": "classification_parse_error",
-        }
+        fallback["reasoning"] = "classification_parse_error"
+        return fallback
 
 
 def classify_batch(messages: list[dict]) -> list[dict]:
