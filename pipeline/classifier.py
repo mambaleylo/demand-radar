@@ -59,7 +59,15 @@ def classify_message(text: str) -> dict:
 
     try:
         resp = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            print(f"[classifier] API error {resp.status_code}: {resp.text[:500]}")
+            return {
+                "is_demand": False,
+                "category": None,
+                "normalized_query": None,
+                "confidence": 0.0,
+                "reasoning": "api_error",
+            }
         data = resp.json()
         raw = data["content"][0]["text"].strip()
     except Exception as e:
