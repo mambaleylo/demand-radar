@@ -6,12 +6,21 @@
   2) если спрос — категория и нормализованная формулировка запроса.
 
 Требуется переменная окружения ANTHROPIC_API_KEY.
+
+Намеренно без пакета `anthropic` (SDK): его зависимость `jiter` собирается из Rust
+и на Termux/Android часто не ставится (нет Rust-тулчейна из коробки). Вместо этого —
+прямой HTTP-запрос через requests, который уже используется в остальном проекте.
 """
 import os
 import json
-import anthropic
+import requests
 
-MODEL = "claude-sonnet-4-6"
+API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
+
+# Haiku — дешёвая и быстрая модель, подходит для массовой классификации коротких сообщений.
+# Если качество классификации будет хромать — поменять на "claude-sonnet-5".
+MODEL = "claude-haiku-4-5-20251001"
 
 SYSTEM_PROMPT = """Ты анализируешь сообщения с форумов/досок объявлений/чатов в Беларуси,
 чтобы найти сигналы неудовлетворённого спроса — случаи, когда человек ищет товар или услугу,
@@ -32,14 +41,37 @@ is_demand=false если: это объявление о продаже, обс�
 
 
 def classify_message(text: str) -> dict:
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=300,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": text[:2000]}],
-    )
-    raw = resp.content[0].text.strip()
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("Не задана переменная окружения ANTHROPIC_API_KEY")
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": MODEL,
+        "max_tokens": 300,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": text[:2000]}],
+    }
+
+    try:
+        resp = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        raw = data["content"][0]["text"].strip()
+    except Exception as e:
+        print(f"[classifier] API error: {e}")
+        return {
+            "is_demand": False,
+            "category": None,
+            "normalized_query": None,
+            "confidence": 0.0,
+            "reasoning": "api_error",
+        }
+
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     try:
         return json.loads(raw)
